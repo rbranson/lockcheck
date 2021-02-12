@@ -28,8 +28,6 @@ const vizOutputDir = "viz"
 const dynamolockLeaseDuration = 100 * time.Millisecond
 const dynamolockHeartbeatPeriod = 10 * time.Millisecond
 
-var idseq monotonic
-
 type monotonic struct {
 	v int64
 }
@@ -261,15 +259,10 @@ func (s *shared) Put(v int) {
 type actor struct {
 	Lock lock
 	Func func(ctx context.Context, actorID int) error
-
-	id int
+	ID int
 }
 
 func (a *actor) Run(ctx context.Context) error {
-	if a.id == 0 {
-		id := idseq.Next()
-		a.id = int(id)
-	}
 	for {
 		select {
 		case <-time.After(1 * time.Nanosecond):
@@ -286,7 +279,7 @@ func (a *actor) Run(ctx context.Context) error {
 			}
 			defer a.Lock.Release(ctx)
 
-			if err := a.Func(ctx, a.id); err != nil {
+			if err := a.Func(ctx, a.ID); err != nil {
 				return err
 			}
 
@@ -391,6 +384,7 @@ func checkLock(runfor time.Duration, lf lockFactory) {
 		Val: &val,
 	}
 
+	seq := monotonic{}
 	wg := sync.WaitGroup{}
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
@@ -402,6 +396,7 @@ func checkLock(runfor time.Duration, lf lockFactory) {
 			a := actor{
 				Lock: lf(),
 				Func: cont.F,
+				ID: int(seq.Next()),
 			}
 			err := a.Run(ctx)
 			if err != nil && err != context.DeadlineExceeded {
