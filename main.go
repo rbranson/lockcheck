@@ -21,11 +21,10 @@ import (
 	"github.com/rbranson/porcupine"
 )
 
-const concurrency = 20
+const concurrency = 100
 const dynamoTable = "Locks"
 const outputVisualization = false
 const vizOutputDir = "viz"
-
 const dynamolockLeaseDuration = 100 * time.Millisecond
 const dynamolockHeartbeatPeriod = 10 * time.Millisecond
 
@@ -77,7 +76,7 @@ func (m *memlock) Acquire(ctx context.Context) (bool, error) {
 		}
 
 		select {
-		case <-time.After(1 * time.Microsecond):
+		case <-time.After(10 * time.Microsecond):
 		case <-ctx.Done():
 			return false, ctx.Err()
 		}
@@ -240,7 +239,7 @@ type shared struct {
 }
 
 func (s *shared) sleep() {
-	micros := rand.Intn(1000)
+	micros := rand.Intn(100)
 	time.Sleep(time.Duration(micros) * time.Microsecond)
 }
 
@@ -248,17 +247,15 @@ func (s *shared) Get() int {
 	s.sleep()
 	which := rand.Intn(len(s.Stores))
 	v, _ := s.Stores[which].Load().(int)
-	s.sleep()
 	return v
 }
 
 func (s *shared) Put(v int) {
 	for i := range s.Stores {
-		s.sleep()
 		store := &s.Stores[i] // by-ref
 		store.Store(v)
+		s.sleep()
 	}
-	s.sleep()
 }
 
 type actor struct {
