@@ -25,8 +25,9 @@ const concurrency = 100
 const dynamoTable = "Locks"
 const outputVisualization = false
 const vizOutputDir = "viz"
-const dynamolockLeaseDuration = 100 * time.Millisecond
-const dynamolockHeartbeatPeriod = 10 * time.Millisecond
+const dynamolockLeaseDuration = 1 * time.Second
+const dynamolockHeartbeatPeriod = 100 * time.Millisecond
+const maxHeartbeats = 3
 
 type monotonic struct {
 	v int64
@@ -106,7 +107,7 @@ func (d *distlock) init() (err error) {
 		return nil
 	}
 	d.client, err = dynamolock.New(
-		d.DDB,
+		NewDynamoDBMock(d.DDB, maxHeartbeats),
 		d.TableName,
 		dynamolock.WithLeaseDuration(d.LeaseDuration),
 		dynamolock.WithHeartbeatPeriod(d.HeartbeatPeriod),
@@ -137,7 +138,9 @@ func (d *distlock) Acquire(ctx context.Context) (ok bool, err error) {
 	if err = d.init(); err != nil {
 		return false, err
 	}
-	d.lock, err = d.client.AcquireLockWithContext(ctx, d.Key, dynamolock.WithAdditionalTimeToWaitForLock(1*time.Hour))
+	d.lock, err = d.client.AcquireLockWithContext(ctx, d.Key, dynamolock.WithAdditionalTimeToWaitForLock(1*time.Second), dynamolock.WithSessionMonitor(200*time.Millisecond, func() {
+		fmt.Printf("call Kenny Loggins cause you're in the DANGER ZONE\n")
+	}))
 	if err != nil {
 		return false, err
 	}
@@ -318,6 +321,7 @@ func (c *contention) F(ctx context.Context, actorID int) error {
 		sesh.PostPut()
 	}
 
+	time.Sleep(600*time.Millisecond)
 	return nil
 }
 
