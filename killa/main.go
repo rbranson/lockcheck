@@ -12,10 +12,7 @@ import (
 )
 
 const PTRACE_O_EXITKILL = 1 << 20
-
 const NICE_SYSCALL = 42069
-
-const LINUX_X86_RAX = 10*8 // from arch/x86/entry/calling.h
 
 func isSignal(ws syscall.WaitStatus) bool {
 	return int(ws) >> 8 == (int(syscall.SIGTRAP) | (syscall.PTRACE_EVENT_CLONE<<8))
